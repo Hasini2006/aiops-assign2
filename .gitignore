@@ -1,6 +1,3 @@
-# Ignore attachments folder
-attachments/
-
 # Ignore all virtual environments anywhere in the project
 venv/
 
