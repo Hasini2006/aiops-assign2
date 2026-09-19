@@ -1,0 +1,2 @@
+kubernetes==36.0.3
+pandas==3.0.5

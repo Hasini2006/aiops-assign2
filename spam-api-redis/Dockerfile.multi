@@ -1,0 +1,82 @@
+FROM python:3.12 AS builder
+# Same full base as the naive build -- we don't need it to be small, because
+# this stage is discarded after the build finishes; only whatever a later
+# stage explicitly COPY --from='s out of it survives. "AS builder" gives this
+# stage a name so Stage 2 can refer back to it.
+
+WORKDIR /build
+# Deliberately a different path (/build, not /app) to make it visually obvious
+# in the Dockerfile which files belong to the throwaway training step versus
+# the shipped runtime step in Stage 2.
+
+COPY requirements-train.txt .
+RUN pip install --no-cache-dir -r requirements-train.txt
+# requirements-train.txt lists only pandas, scikit-learn, and joblib -- what
+# TRAINING needs (numpy arrives transitively via pandas/scikit-learn/scipy).
+# fastapi and uvicorn are NOT installed here: this stage never serves a
+# request, so it has no use for a web framework. --no-cache-dir means pip
+# streams each wheel straight to disk and discards the download afterwards,
+# instead of also keeping a copy under /root/.cache/pip -- irrelevant for
+# final image size in THIS stage anyway, since the whole stage gets thrown
+# away, but it is the correct habit and keeps the *builder* stage itself
+# smaller and faster on repeated local builds.
+
+COPY generate_data.py train.py .
+RUN python generate_data.py && python train.py
+# Produces two things inside /build: spam_dataset.csv (intermediate, only
+# needed by train.py) and artifacts/model.joblib (the ONE artifact Stage 2
+# actually wants). Both scripts are identical to the ones used by the naive
+# build and are seeded (random.seed(42) / random_state=42), so this produces
+# the exact same trained pipeline -- the naive and multi-stage images serve
+# identical predictions, only the packaging differs.
+
+# ------------------------- Stage 2: runtime ----------------------------------
+FROM python:3.12-slim AS runtime
+# python:3.10-slim -- the SAME Python 3.10 interpreter, on a stripped-down
+# Debian base that omits the general-purpose OS packages the full "python:3.10"
+# tag includes (compilers' dependency headers, extra libraries, docs, etc.)
+# that this API never touches. This one line is the single largest size win
+# in this Dockerfile: as of writing, Docker Hub lists the linux/amd64
+# python:3.10-bookworm image at roughly 358 MB compressed versus roughly
+# 45 MB compressed for python:3.10-slim-bookworm on the same architecture --
+# before a single project dependency is even installed. (Numbers vary by CPU
+# architecture and change as base images are rebuilt -- check current values
+# on Docker Hub, and report YOUR measured `docker images` sizes in the write-up.)
+
+WORKDIR /app
+# Matches the naive build's WORKDIR on purpose, so `uvicorn app.main:app` and
+# the MODEL_PATH resolution logic in app/main.py behave identically in both
+# images -- the runtime code doesn't know or care which Dockerfile built it.
+
+COPY requirements-serve.txt .
+RUN pip install --no-cache-dir -r requirements-serve.txt
+# requirements-serve.txt lists fastapi, uvicorn, scikit-learn, and joblib.
+# scikit-learn (and therefore numpy/scipy underneath it) IS still required
+# here -- not because we serve any training code, but because joblib.load()
+# has to reconstruct the exact TfidfVectorizer / MultinomialNB / Pipeline
+# Python classes that were pickled in Stage 1, and those classes live in
+# scikit-learn. What is genuinely absent from this stage is pandas (and its
+# own dependencies, pytz/tzdata) -- nothing on the /predict code path ever
+# builds a DataFrame, so pandas buys this image nothing at serving time.
+# --no-cache-dir here has real effect: this IS the shipped stage, so every
+# byte of pip's download cache we skip is a byte the final image doesn't pay
+# for.
+
+COPY --from=builder /build/model.joblib .
+# The ONLY thing pulled out of the builder stage. Everything else that lived
+# in Stage 1 -- pandas itself, spam_dataset.csv, generate_data.py, train.py,
+# requirements-train.txt, pip's build metadata, apt's package lists from the
+# full python:3.10 base -- physically does not exist in Stage 2's layers.
+# It isn't excluded by a .dockerignore rule; it was simply never COPY'd in,
+# because Stage 2 starts from a brand-new, empty python:3.10-slim filesystem.
+
+COPY app.py .
+# Only the serving code -- one file. train.py and generate_data.py are
+# never copied into this stage at all.
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Identical entrypoint to the naive image -- same command, same module path,
+# same port. From the outside, the two containers are indistinguishable;
+# only their size and contents differ.

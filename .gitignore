@@ -1,0 +1,11 @@
+# Ignore attachments folder
+attachments/
+
+# Ignore all virtual environments anywhere in the project
+venv/
+
+# Ignore Python cache folders anywhere in the project
+__pycache__/
+
+# Ignore Python compiled files
+*.pyc

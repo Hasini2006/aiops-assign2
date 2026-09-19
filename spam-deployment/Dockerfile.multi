@@ -1,0 +1,23 @@
+FROM python:3.12 AS builder
+WORKDIR /build
+
+COPY requirements-train.txt .
+RUN pip install --no-cache-dir -r requirements-train.txt
+
+COPY generate_data.py train.py .
+RUN python generate_data.py && python train.py
+
+FROM python:3.12-slim AS runtime
+WORKDIR /app
+
+ARG APP_VERSION=v2
+ENV APP_VERSION=${APP_VERSION}
+
+COPY requirements-serve.txt .
+RUN pip install --no-cache-dir -r requirements-serve.txt
+
+COPY --from=builder /build/model.joblib .
+COPY app.py .
+
+EXPOSE 8000
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

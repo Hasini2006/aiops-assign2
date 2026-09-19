@@ -1,0 +1,38 @@
+# No top-level `version:` key -- current Docker Compose (the "docker compose"
+# subcommand built into the Docker CLI, as opposed to the old standalone
+# docker-compose v1) ignores/deprecates it; the file format itself is what's
+# versioned now, not this field.
+
+services:
+  cache:
+    image: redis:7-alpine
+    container_name: spam-cache
+    # Without this, Compose names the container something like
+    # "<folder-name>-cache-1", derived from your directory name -- explicit
+    # naming makes it predictable regardless of what you called the folder.
+    # No `ports:` here on purpose. Only the "api" service needs to reach
+    # Redis, and it does so over Compose's internal network -- there is no
+    # reason to also expose 6379 to the host machine.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.multi
+    image: spam-api-multi:latest
+    container_name: spam-api-redis-container
+    # `image:` alongside `build:` tells Compose what to TAG the image it
+    # builds as, instead of an auto-derived name like "<folder-name>-api" --
+    # so `docker images` shows "spam-api:latest" explicitly.
+    # `container_name` does the same for the running container.
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=cache
+    depends_on:
+      cache:
+        condition: service_healthy

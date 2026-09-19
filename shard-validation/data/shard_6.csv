@@ -1,0 +1,31 @@
+id,name,email,signup_date
+8,Alice Kumar,alice8@mail.com,2026-09-15
+4,Alice Kumar,not-an-email,2026-05-15
+6,Chidi Okafor,chidi6@shop.co,2026-07-15
+11,,alice11@example.com,2026-03-15
+25,Grace Lin,grace25@example.com,2026-08-15
+17,Farid Haidari,farid17@mail.com,2026-09-15
+16,Hassan Ali,hassan16@mail.com,2026-08-15
+18,Ben Ortiz,not-an-email,2026-01-15
+22,Grace Lin,grace22@example.com,2026-05-15
+20,Chidi Okafor,chidi20@shop.co,2026-03-15
+19,Grace Lin,grace19@shop.co,2026-02-15
+3,Farid Haidari,farid3@shop.co,2026-04-15
+9,Alice Kumar,alice9@mail.com,2026-01-15
+15,,hassan15@mail.com,2026-07-15
+21,Hassan Ali,hassan21@mail.com,2026-04-15
+23,Deepa Rao,deepa23@shop.co,2026-06-15
+0,Farid Haidari,farid0@example.com,2026-01-15
+5,Elena Petrova,elena5@shop.co,2026-06-15
+27,Farid Haidari,farid27@example.com,2026-01-15
+13,Ben Ortiz,ben13@example.com,2026-05-15
+24,Ben Ortiz,missing-at-sign.com,2026-07-15
+7,,ben7@mail.com,2026-08-15
+1,Deepa Rao,missing-at-sign.com,2026-02-15
+12,Elena Petrova,elena12@mail.com,2026-04-15
+10,,alice10@mail.com,2026-02-15
+2,Alice Kumar,alice2@example.com,2026-03-15
+26,Chidi Okafor,chidi26@example.com,2026-09-15
+29,Alice Kumar,alice29@shop.co,2026-03-15
+28,Alice Kumar,alice28@example.com,2026-02-15
+14,Grace Lin,grace14@example.com,2026-06-15

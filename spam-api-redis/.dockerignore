@@ -1,0 +1,4 @@
+model.joblib
+spam_dataset.csv
+venv/
+__pycache__/
