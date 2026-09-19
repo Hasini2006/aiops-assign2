@@ -1,9 +1,6 @@
 # Evidence
 
-Screenshots for each question, in order. Replace each `![]()` placeholder with
-your actual screenshot (e.g. `![](screenshots/q1-01-naive-build.png)`); the
-caption underneath each one explains what it needs to show.
-
+Screenshots for each question, in order.
 ---
 
 ## Question 1 — Naive vs. Multi-Stage Docker Build
