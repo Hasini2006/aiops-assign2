@@ -1,4 +1,5 @@
 # AIOps Module 3 Assignment — Repository Overview
+Video link in case if required - https://drive.google.com/file/d/1GMVTowOlszqXoJzW0LlwjstqgYhfMQgG/view?usp=share_link
 
 Four folders, one per question. Each is self-contained (its own Dockerfile(s),
 dependencies, and app code) so it can be built and run independently.
