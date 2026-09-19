@@ -9,7 +9,115 @@ dependencies, and app code) so it can be built and run independently.
 | `spam-api-redis/` | Question 2 — Docker Compose + Redis caching |
 | `shard-validation/` | Question 3 — Kubernetes Indexed Job |
 | `spam-deployment/` | Question 4 — Kubernetes Deployment + Service |
-| File | Purpose |
+
+---
+
+## Setup & Running
+
+### Prerequisites
+
+- Docker
+- `minikube` and `kubectl` (Questions 3 and 4 only)
+- Python 3.12+ with a virtual environment for running local scripts (`collect_results.py` in Question 3)
+
+### Question 1 — Naive vs. Multi-Stage Docker Build
+
+```bash
+cd spam-api
+
+docker build -f Dockerfile.single -t naive-image .
+docker build -f Dockerfile.multi -t multistage-image .
+
+docker images naive-image multistage-image --format "{{.Repository}}: {{.Size}}"
+
+docker run -d --name naive-container -p 8000:8000 naive-image
+curl http://localhost:8000/healthz
+curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" \
+  -d '{"text": "WIN a FREE iPhone now! Click here: bit.ly/xyz123"}'
+docker stop naive-container && docker rm naive-container
+
+docker run -d --name multistage-container -p 8001:8000 multistage-image
+curl http://localhost:8001/healthz
+docker stop multistage-container && docker rm multistage-container
+```
+
+### Question 2 — Docker Compose + Redis Caching
+
+```bash
+cd spam-api-redis
+
+docker compose up --build -d
+docker compose ps
+
+# cache MISS then cache HIT, with timing
+curl -s -w "\n[elapsed: %{time_total}s]\n" -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" -d '{"text": "WIN a FREE iPhone now! Click here: bit.ly/xyz123"}'
+curl -s -w "\n[elapsed: %{time_total}s]\n" -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" -d '{"text": "WIN a FREE iPhone now! Click here: bit.ly/xyz123"}'
+
+docker compose logs api   # confirms [cache MISS] then [cache HIT]
+docker compose down
+```
+
+### Question 3 — Kubernetes Indexed Job
+
+```bash
+cd shard-validation
+
+minikube start --nodes=2 --cpus=2 --memory=4096 --driver=docker
+
+python3 generate_shards.py
+minikube image build --all -t shard-validator:latest -f Dockerfile.job .
+
+kubectl apply -f job-2node.yaml
+kubectl get pods -l job-name=shard-validation-2node -o wide
+kubectl get job shard-validation-2node
+
+pip install -r requirements.txt
+python collect_results.py --job-name shard-validation-2node
+kubectl delete -f job-2node.yaml
+
+# scale to 3 nodes for the 6-CPU scenario
+minikube node add
+minikube image build --all -t shard-validator:latest -f Dockerfile.job .
+
+kubectl apply -f job-3node.yaml
+kubectl get pods -l job-name=shard-validation-3node -o wide
+kubectl get job shard-validation-3node
+
+python collect_results.py --job-name shard-validation-3node --out results_3node.csv
+kubectl delete -f job-3node.yaml
+```
+
+### Question 4 — Kubernetes Deployment + Service
+
+```bash
+cd spam-deployment
+
+# ensure Dockerfile.multi has: ARG APP_VERSION=v1
+minikube image build --all -t spam-api:v1 -f Dockerfile.multi .
+
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl rollout status deployment/spam-api
+
+minikube service spam-api-svc --url
+curl http://192.168.49.2:30090/healthz
+curl -X POST http://192.168.49.2:30090/predict -H "Content-Type: application/json" \
+  -d '{"text": "WIN a FREE iPhone now! Click here: bit.ly/xyz123"}'
+
+# self-healing
+kubectl get pods -l app=spam-api
+kubectl delete pod <pod-name> --wait=false; kubectl get pods -l app=spam-api -w
+kubectl describe deployment spam-api | grep -A5 Events
+
+# rolling update -- edit Dockerfile.multi: ARG APP_VERSION=v2
+minikube image build --all -t spam-api:v2 -f Dockerfile.multi .
+kubectl set image deployment/spam-api api=spam-api:v2
+kubectl rollout status deployment/spam-api
+kubectl rollout history deployment/spam-api
+curl http://192.168.49.2:30090/healthz   # now shows "version":"v2"
+```
 
 ---
 
@@ -67,6 +175,6 @@ dependencies, and app code) so it can be built and run independently.
 
 | File | What it does |
 |---|---|
+| `Report-2-DA24B041` | Explanations for required questions |
 | `AI_DISCLOSURE.md` | Disclosure of AI assistance used in this assignment. |
-| `Report-2-DA24B041.PDF` | Explanations for required questions. |
 | `README.md` | This file. |
